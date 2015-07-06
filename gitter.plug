@@ -1,0 +1,7 @@
+[Core]
+Name = Gitter
+Module = gitter
+
+[Documentation]
+Description = This is a backend implemention for gitter.im.
+
