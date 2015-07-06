@@ -17,7 +17,10 @@ def oauth_callback():
                'client_secret': CLIENT_SECRET,
                'code': code,
                'redirect_uri':'http://localhost:8080/',
-               'grant_type': 'authorization_code'}
+               'grant_type': 'authorization_code',
+               'expires_in': 86400 * 365,
+               }
+
     headers = {'Accept': 'application/json'}
     response = requests.post("https://gitter.im/login/oauth/token", data=payload)
     content = response.json()
@@ -26,6 +29,9 @@ def oauth_callback():
       print(content['error_description'])
       sys.exit(-1)
     token = content['access_token']
+    print('Full response (debug purposes): %s' % repr(content))
+    print()
+    print()
     print('You need to put:\nOAUTH_TOKEN=%s\nin your BOT_IDENTITY section of your config.py.' % token)
     threading.Timer(3.0, lambda:os.kill(os.getpid(), signal.SIGTERM)).start()
     return '<html><body>You need to put:<br/>OAUTH_TOKEN=%s<br/>in your BOT_IDENTITY section of your config.py.</body></html>' % token
