@@ -4,6 +4,7 @@ import logging
 import time
 import requests
 import sys
+import threading
 from errbot.backends.base import Message, Presence, Stream, MUCRoom
 
 log = logging.getLogger(__name__)
@@ -69,6 +70,7 @@ class GitterRoom(MUCRoom):
     def join(self, username=None, password=None):
       log.debug("Joining room %s" % self._uri)
       # TODO: this assume this is already joined.
+      self._backend.follow_room(self._uri)
       # response = self._backend.writeAPIRequest('rooms', {'uri': self._uri})
       # log.debug("Response: %s" % response)
 
@@ -135,6 +137,12 @@ class GitterBackend(ErrBot):
           raise Exception("Server returned an error %d:%s" % (r.status_code, r.text))
         return r.json()
 
+    def streamAPIRequest(self, endpoint, params=None):
+        r = requests.get('https://stream.gitter.im/v1/' + endpoint, headers=self.base_headers, params = params, stream=True)
+        if r.status_code != requests.codes.ok:
+          raise Exception("Server returned an error %d:%s" % (r.status_code, r.text))
+        return r
+
     def writeAPIRequest(self, endpoint, content):
         headers = self.base_headers.copy()
         headers['Content-Type'] = 'application/json'
@@ -146,6 +154,17 @@ class GitterBackend(ErrBot):
           raise Exception("Server returned an error %d:%s" % (r.status_code, r.text))
         return r.json()
 
+    def follow_room(self, uri):
+        log.debug("following room %s" % uri)
+        def background():
+          try:
+            log.debug("thread for %s started" % uri)
+            with self.streamAPIRequest('rooms/%s/chatMessages' % uri) as r:
+              for content in r.itercontent(4096):
+                log.debug('content: %s' % content)
+          except Exception as e:
+            log.error(e)
+        threading.Thread(target=background).start()
 
     def rooms(self):
         json_rooms = self.readAPIRequest('rooms')
