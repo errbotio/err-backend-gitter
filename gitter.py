@@ -5,7 +5,7 @@ import time
 import requests
 import sys
 import threading
-from errbot.backends.base import Message, Presence, Stream, MUCRoom
+from errbot.backends.base import Message, Presence, Stream, MUCRoom, build_message
 
 log = logging.getLogger(__name__)
 
@@ -222,13 +222,18 @@ class GitterBackend(ErrBot):
         super().send_message(mess)
         if mess.type == 'groupchat':
           self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
-                               {'text': mess.body})
+                               {'text': '```\n' + mess.body + '```\n'})
+
     def build_reply(self, mess, text=None, private=False):
-        response = Message(text, type_ = mess.type)
+        response = self.build_message(text)
         response.frm = mess.to
         response.to = mess.frm
+        response.type = 'chat' if private else mess.type
         return response
- 
+
+    def build_message(self, text):
+        return build_message(text, Message)
+
     def serve_forever(self):
         self.connect_callback()
         try:
