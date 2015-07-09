@@ -54,6 +54,15 @@ class GitterIdentifier(object):
     def avatarMedium(self):
       return self._avatarMedium
 
+    @staticmethod
+    def build_from_json(from_user):
+      return  GitterIdentifier(idd=from_user['id'],
+                               username=from_user['username'],
+                               displayName=from_user['displayName'],
+                               url=from_user['url'],
+                               avatarSmall=from_user['avatarUrlSmall'],
+                               avatarMedium=from_user['avatarUrlMedium'])
+
 class GitterMUCOccupant(GitterIdentifier):
     def __init__(self,
                  room,
@@ -73,6 +82,16 @@ class GitterMUCOccupant(GitterIdentifier):
     @property
     def room(self):
         return self._room
+
+    @staticmethod
+    def build_from_json(room, json_user):
+        return GitterMUCOccupant(room,
+                                 idd=json_user['id'],
+                                 username=json_user['username'],
+                                 displayName=json_user['displayName'],
+                                 url=json_user['url'],
+                                 avatarSmall=json_user['avatarUrlSmall'],
+                                 avatarMedium=json_user['avatarUrlMedium'])
 
 class GitterRoom(MUCRoom):
     def __init__(self, backend, idd, uri, name):
@@ -123,13 +142,7 @@ class GitterRoom(MUCRoom):
       occupants = []
       json_users = self._backend.readAPIRequest('rooms/%s/users' % self._uri)
       for json_user in json_users:
-        occupants.append(GitterMUCOccupant(self,
-                                           idd=json_user['id'],
-                                           username=json_user['username'],
-                                           displayName=json_user['displayName'],
-                                           url=json_user['url'],
-                                           avatarSmall=json_user['avatarUrlSmall'],
-                                           avatarMedium=json_user['avatarUrlMedium']))
+        occupants.append(GitterMUCOccupant.build_from_json(self, json_user['id']))
 
 
 class GitterBackend(ErrBot):
@@ -188,13 +201,7 @@ class GitterBackend(ErrBot):
                     from_user = json_message['fromUser']
                     log.debug("Raw message from room %s: %s" % (room.name, json_message))
                     m = Message(json_message['text'], type_='groupchat', html=json_message['html'])
-                    m.frm = GitterMUCOccupant(room = room,
-                                              idd=from_user['id'],
-                                              username=from_user['username'],
-                                              displayName=from_user['displayName'],
-                                              url=from_user['url'],
-                                              avatarSmall=from_user['avatarUrlSmall'],
-                                              avatarMedium=from_user['avatarUrlMedium'])
+                    m.frm = GitterMUCOccupant.build_from_json(room, from_user)
                     m.to = self.bot_identifier
                     self.callback_message(m)
                 else:
@@ -210,6 +217,18 @@ class GitterBackend(ErrBot):
             rooms.append(GitterRoom(self, json_room['id'], json_room['uri'], json_room['name']))
         return rooms
 
+    def contacts(self):
+        # contacts are a kind of special Room
+        json_rooms = self.readAPIRequest('rooms')
+        contacts = []
+        for json_room in json_rooms:
+          if json_room['oneToOne']:
+            json_user = json_room['user']
+            log.debug("found contact %s" % repr(json_room))
+            contacts.append(GitterRoom(self, json_room['id'], json_room['url'], json_room['name']))
+        return contacts
+
+
     def query_room(self, room):
         # TODO: maybe we can query the room resource only
         for native_room in self.rooms():
@@ -220,9 +239,12 @@ class GitterBackend(ErrBot):
 
     def send_message(self, mess):
         super().send_message(mess)
+        content = {'text': '```\n' + mess.body + '```\n'}
         if mess.type == 'groupchat':
-          self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
-                               {'text': '```\n' + mess.body + '```\n'})
+            self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
+                                 content)
+        else:
+            self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd)
 
     def build_reply(self, mess, text=None, private=False):
         response = self.build_message(text)
@@ -233,6 +255,14 @@ class GitterBackend(ErrBot):
 
     def build_message(self, text):
         return build_message(text, Message)
+
+    def connect_callback(self):
+        super().connect_callback()
+
+        # listen to the one to one contacts
+        # TODO: update that when a new contact adds you up
+        for contact_room in self.contacts():
+            self.follow_room(contact_room)
 
     def serve_forever(self):
         self.connect_callback()
