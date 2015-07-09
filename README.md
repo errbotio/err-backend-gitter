@@ -1,5 +1,5 @@
 
-This is a backend for Gitter (http://gitter.im) for err (http://errbot.net)
+This is a backend for Gitter (http://gitter.im) for err (http://errbot.net) 2.3.0-rc3 or newer.
 
 ## Installation
 
