@@ -19,7 +19,6 @@ class GitterIdentifier(object):
                  avatarSmall=None,
                  avatarMedium=None):
       self._idd = idd
-      self._idd = idd
       self._username = username
       self._displayName = displayName
       self._url = url
@@ -33,10 +32,6 @@ class GitterIdentifier(object):
     @property
     def username(self):
       return self._username
-
-    @property
-    def person(self):
-      return self.username
 
     @property
     def displayName(self):
@@ -54,6 +49,23 @@ class GitterIdentifier(object):
     def avatarMedium(self):
       return self._avatarMedium
 
+    # Generic API
+    @property
+    def person(self):
+      return self._idd
+
+    @property
+    def nick(self):
+      return self._username
+
+    @property
+    def fullname(self):
+      return self._displayName
+
+    @property
+    def client(self):
+      return ''
+
     @staticmethod
     def build_from_json(from_user):
       return  GitterIdentifier(idd=from_user['id'],
@@ -62,6 +74,10 @@ class GitterIdentifier(object):
                                url=from_user['url'],
                                avatarSmall=from_user['avatarUrlSmall'],
                                avatarMedium=from_user['avatarUrlMedium'])
+
+    def __unicode__(self):
+        return self.username
+
 
 class GitterMUCOccupant(GitterIdentifier):
     def __init__(self,
@@ -92,6 +108,12 @@ class GitterMUCOccupant(GitterIdentifier):
                                  url=json_user['url'],
                                  avatarSmall=json_user['avatarUrlSmall'],
                                  avatarMedium=json_user['avatarUrlMedium'])
+    def __unicode__(self):
+        if self.url == self._room._uri:
+            return self.username  # this is a 1 to 1 MUC
+        return self.username + '@' + self._room.name
+
+    __str__ = __unicode__
 
 class GitterRoom(MUCRoom):
     def __init__(self, backend, idd, uri, name):
@@ -144,6 +166,9 @@ class GitterRoom(MUCRoom):
       for json_user in json_users:
         occupants.append(GitterMUCOccupant.build_from_json(self, json_user['id']))
 
+    def __unicode__(self):
+        return self.name
+    __str__ = __unicode__
 
 class GitterBackend(ErrBot):
 
