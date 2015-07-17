@@ -5,7 +5,7 @@ import time
 import requests
 import sys
 import threading
-from errbot.backends.base import Message, Presence, Stream, MUCRoom, build_message
+from errbot.backends.base import Message, Presence, Stream, MUCRoom
 
 log = logging.getLogger(__name__)
 
@@ -277,9 +277,6 @@ class GitterBackend(ErrBot):
         response.to = mess.frm
         response.type = 'chat' if private else mess.type
         return response
-
-    def build_message(self, text):
-        return build_message(text, Message)
 
     def connect_callback(self):
         super().connect_callback()
