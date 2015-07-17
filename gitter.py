@@ -264,7 +264,7 @@ class GitterBackend(ErrBot):
 
     def send_message(self, mess):
         super().send_message(mess)
-        content = {'text': '```\n' + mess.body + '```\n'}
+        content = {'text': mess.body}
         if mess.type == 'groupchat':
             self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
                                  content)
