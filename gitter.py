@@ -6,6 +6,7 @@ import requests
 import sys
 import threading
 from errbot.backends.base import Message, Presence, Stream, MUCRoom
+from errbot.rendering import md
 
 log = logging.getLogger(__name__)
 
@@ -174,6 +175,7 @@ class GitterBackend(ErrBot):
 
     def __init__(self, config):
         super().__init__(config)
+        self.md = md()
         identity = config.BOT_IDENTITY
 
         self.token = identity.get('token', None)
@@ -264,7 +266,8 @@ class GitterBackend(ErrBot):
 
     def send_message(self, mess):
         super().send_message(mess)
-        content = {'text': mess.body}
+        body = self.md.convert(mess.body)  # strips the unsupported stuff.
+        content = {'text': body}
         if mess.type == 'groupchat':
             self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
                                  content)
