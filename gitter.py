@@ -227,7 +227,7 @@ class GitterBackend(ErrBot):
                     json_message = json.loads(line.decode('utf-8'))
                     from_user = json_message['fromUser']
                     log.debug("Raw message from room %s: %s" % (room.name, json_message))
-                    m = Message(json_message['text'], type_='groupchat', html=json_message['html'])
+                    m = Message(json_message['text'], type_='groupchat')
                     m.frm = GitterMUCOccupant.build_from_json(room, from_user)
                     m.to = self.bot_identifier
                     self.callback_message(m)
