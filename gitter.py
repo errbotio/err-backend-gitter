@@ -233,7 +233,9 @@ class GitterBackend(ErrBot):
                     self.callback_message(m)
                 else:
                     log.debug('keep alive')
-        threading.Thread(target=background).start()
+        t = threading.Thread(target=background)
+        t.daemon = True
+        t.start()
 
     def rooms(self):
         json_rooms = self.readAPIRequest('rooms')
@@ -289,14 +291,16 @@ class GitterBackend(ErrBot):
         for contact_room in self.contacts():
             self.follow_room(contact_room)
 
-    def serve_forever(self):
+    def serve_once(self):
         self.connect_callback()
         try:
             while True:
               time.sleep(2)
+        except KeyboardInterrupt:
+            log.info("Interrupt received, shutting down..")
+            return True
         finally:
             self.disconnect_callback()
-            self.shutdown()
 
     def mode(self):
       return 'gitter'
