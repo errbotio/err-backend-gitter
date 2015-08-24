@@ -257,6 +257,14 @@ class GitterBackend(ErrBot):
             contacts.append(GitterRoom(self, json_room['id'], json_room['url'], json_room['name']))
         return contacts
 
+    def build_identifier(self, strrep):
+        # contacts are a kind of special Room
+        for json_room in self.readAPIRequest('rooms'):
+          if json_room['oneToOne']:
+            json_user = json_room['user']
+            if json_user['username'] == strrep:
+                return GitterIdentifier.build_from_json(json_user)
+        raise Exception("%s not found.", strrep)
 
     def query_room(self, room):
         # TODO: maybe we can query the room resource only
@@ -274,7 +282,7 @@ class GitterBackend(ErrBot):
             self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
                                  content)
         else:
-            self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd)
+            self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd, content)
 
     def build_reply(self, mess, text=None, private=False):
         response = self.build_message(text)
