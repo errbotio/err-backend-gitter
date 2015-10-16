@@ -140,6 +140,10 @@ class GitterRoom(MUCRoom):
     def idd(self):
       return self._idd
 
+    # make a Room compatible with an identifier
+    to = idd
+    person = to
+
     @property
     def name(self):
       return self._name
@@ -259,12 +263,13 @@ class GitterBackend(ErrBot):
 
     def build_identifier(self, strrep):
         # contacts are a kind of special Room
-        for json_room in self.readAPIRequest('rooms'):
+        all_rooms = self.readAPIRequest('rooms')
+        for json_room in all_rooms:
           if json_room['oneToOne']:
             json_user = json_room['user']
             if json_user['username'] == strrep:
                 return GitterIdentifier.build_from_json(json_user)
-        raise Exception("%s not found.", strrep)
+        raise Exception("%s not found in %s", (strrep, all_rooms))
 
     def query_room(self, room):
         # TODO: maybe we can query the room resource only
@@ -276,13 +281,19 @@ class GitterBackend(ErrBot):
 
     def send_message(self, mess):
         super().send_message(mess)
+        log.debug("bf body = %s" % mess.body)
         body = self.md.convert(mess.body)  # strips the unsupported stuff.
+        log.debug("af body = %s" % body)
         content = {'text': body}
         if mess.type == 'groupchat':
+          if hasattr(mess.to, 'room'):
             self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
-                                 content)
+                                  content)
+          else:
+            self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.idd,
+                                  content)
         else:
-            self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd, content)
+          self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd, content)
 
     def build_reply(self, mess, text=None, private=False):
         response = self.build_message(text)
