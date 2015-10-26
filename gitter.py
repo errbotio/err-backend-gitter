@@ -292,7 +292,7 @@ class GitterBackend(ErrBot):
         elif mess.to.idd:
             self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd, content)
         else:
-          self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd, content)
+            log.warn('unable to send this message, to.idd is not specified.')
 
     def build_reply(self, mess, text=None, private=False):
         response = self.build_message(text)
