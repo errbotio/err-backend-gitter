@@ -273,8 +273,10 @@ class GitterBackend(ErrBot):
         if mess.type == 'groupchat':
             self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
                                  content)
+        elif mess.to.idd:
+            self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd, content)
         else:
-            self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd)
+            log.debug('to not set correctly, ignoring')
 
     def build_reply(self, mess, text=None, private=False):
         response = self.build_message(text)
@@ -282,6 +284,10 @@ class GitterBackend(ErrBot):
         response.to = mess.frm
         response.type = 'chat' if private else mess.type
         return response
+
+    def build_identifier(self, txtrep):
+        log.info('Building identifiers directly is not supported yet for gitter.')
+        return self.bot_identifier
 
     def connect_callback(self):
         super().connect_callback()
