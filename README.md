@@ -1,5 +1,8 @@
+This is a backend for Gitter (http://gitter.im) for errbot (http://errbot.io).
 
-This is a backend for Gitter (http://gitter.im) for err (http://errbot.net) 2.3.0-rc3 or newer.
+It allows you to use errbot from Gitter.
+
+[![Screenshot](https://raw.githubusercontent.com/errbotio/err-backend-gitter/master/screenshot.png)](#screenshot)
 
 ## Installation
 
@@ -17,12 +20,10 @@ BOT_EXTRA_BACKEND_DIR = '/path_to/err-backend-gitter'
 to your config.py
 
 ## Authentication
-
-
 From there you have can either add an application or use a personal token from a
 user reserved to the bot.
 
-### Adding an application, worflow for auth
+### Adding an application, workflow for auth
 1. pip install bottle requests
 2. execute the script: ./oauth.py and it will guide you
 
