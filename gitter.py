@@ -120,6 +120,10 @@ class GitterMUCOccupant(GitterIdentifier):
 
 
 class GitterRoom(MUCRoom):
+
+    def invite(self, *args) -> None:
+        pass
+
     def __init__(self, backend, idd, uri, name):
         self._backend = backend
         self._name = name
@@ -181,6 +185,9 @@ class GitterRoom(MUCRoom):
 
 
 class GitterBackend(ErrBot):
+
+
+
     def __init__(self, config):
         super().__init__(config)
         self.md = md()
@@ -330,8 +337,12 @@ class GitterBackend(ErrBot):
         finally:
             self.disconnect_callback()
 
+    def change_presence(self, status, message):
+        log.warn("Presence is not implemented on the gitter backend.")
+        pass
+
+    def prefix_groupchat_reply(self, message, identifier):
+        message.body = '{0}: {1}'.format(identifier.nick, message.body)
+
     def mode(self):
         return 'gitter'
-
-    def groupchat_reply_format(self):
-        return '@{0} {1}'
