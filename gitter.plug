@@ -3,5 +3,5 @@ Name = Gitter
 Module = gitter
 
 [Documentation]
-Description = This is a backend implemention for gitter.im.
+Description = This is a backend implementation for gitter.im.
 
