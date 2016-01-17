@@ -5,7 +5,7 @@ import time
 import requests
 import sys
 import threading
-from errbot.backends.base import Message, Presence, Stream, MUCRoom
+from errbot.backends.base import Message, MUCRoom
 from errbot.rendering import md
 
 log = logging.getLogger(__name__)
@@ -19,62 +19,62 @@ class GitterIdentifier(object):
                  url=None,
                  avatarSmall=None,
                  avatarMedium=None):
-      self._idd = idd
-      self._username = username
-      self._displayName = displayName
-      self._url = url
-      self._avatarSmall = avatarSmall
-      self._avatarMedium = avatarMedium
+        self._idd = idd
+        self._username = username
+        self._displayName = displayName
+        self._url = url
+        self._avatarSmall = avatarSmall
+        self._avatarMedium = avatarMedium
 
     @property
     def idd(self):
-      return self._idd
+        return self._idd
 
     @property
     def username(self):
-      return self._username
+        return self._username
 
     @property
     def displayName(self):
-      return self._displayName
+        return self._displayName
 
     @property
     def url(self):
-      return self._url
+        return self._url
 
     @property
     def avatarSmall(self):
-      return self._avatarSmall
+        return self._avatarSmall
 
     @property
     def avatarMedium(self):
-      return self._avatarMedium
+        return self._avatarMedium
 
     # Generic API
     @property
     def person(self):
-      return self._idd
+        return self._idd
 
     @property
     def nick(self):
-      return self._username
+        return self._username
 
     @property
     def fullname(self):
-      return self._displayName
+        return self._displayName
 
     @property
     def client(self):
-      return ''
+        return ''
 
     @staticmethod
     def build_from_json(from_user):
-      return  GitterIdentifier(idd=from_user['id'],
-                               username=from_user['username'],
-                               displayName=from_user['displayName'],
-                               url=from_user['url'],
-                               avatarSmall=from_user['avatarUrlSmall'],
-                               avatarMedium=from_user['avatarUrlMedium'])
+        return GitterIdentifier(idd=from_user['id'],
+                                username=from_user['username'],
+                                displayName=from_user['displayName'],
+                                url=from_user['url'],
+                                avatarSmall=from_user['avatarUrlSmall'],
+                                avatarMedium=from_user['avatarUrlMedium'])
 
     def __unicode__(self):
         return self.username
@@ -96,6 +96,7 @@ class GitterMUCOccupant(GitterIdentifier):
                          url,
                          avatarSmall,
                          avatarMedium)
+
     @property
     def room(self):
         return self._room
@@ -109,12 +110,14 @@ class GitterMUCOccupant(GitterIdentifier):
                                  url=json_user['url'],
                                  avatarSmall=json_user['avatarUrlSmall'],
                                  avatarMedium=json_user['avatarUrlMedium'])
+
     def __unicode__(self):
         if self.url == self._room._uri:
             return self.username  # this is a 1 to 1 MUC
         return self.username + '@' + self._room.name
 
     __str__ = __unicode__
+
 
 class GitterRoom(MUCRoom):
     def __init__(self, backend, idd, uri, name):
@@ -124,21 +127,21 @@ class GitterRoom(MUCRoom):
         self._idd = idd
 
     def join(self, username=None, password=None):
-      log.debug("Joining room %s (%s)" % (self._uri, self._idd))
-      try:
-         response = self._backend.writeAPIRequest('rooms', {'uri': self._uri})
-         log.debug("Response: %s" % response)
-      except Exception as e:
-         log.exception("Failed to join room")
-      self._backend.follow_room(self)
+        log.debug("Joining room %s (%s)" % (self._uri, self._idd))
+        try:
+            response = self._backend.writeAPIRequest('rooms', {'uri': self._uri})
+            log.debug("Response: %s" % response)
+        except Exception as e:
+            log.exception("Failed to join room")
+        self._backend.follow_room(self)
 
     @property
     def uri(self):
-      return self._uri
+        return self._uri
 
     @property
     def idd(self):
-      return self._idd
+        return self._idd
 
     # make a Room compatible with an identifier
     to = idd
@@ -146,37 +149,38 @@ class GitterRoom(MUCRoom):
 
     @property
     def name(self):
-      return self._name
+        return self._name
 
-    joined = True  #TODO
-    exists = True  #TODO
+    joined = True  # TODO
+    exists = True  # TODO
 
     def destroy(self):
-      pass #TODO
+        pass  # TODO
 
     def create(self):
-      pass #TODO
+        pass  # TODO
 
     def leave(self):
-      pass #TODO
+        pass  # TODO
 
     @property
     def topic(self):
-      return "TODO" #TODO
+        return "TODO"  # TODO
 
     @property
     def occupants(self):
-      occupants = []
-      json_users = self._backend.readAPIRequest('rooms/%s/users' % self._uri)
-      for json_user in json_users:
-        occupants.append(GitterMUCOccupant.build_from_json(self, json_user['id']))
+        occupants = []
+        json_users = self._backend.readAPIRequest('rooms/%s/users' % self._uri)
+        for json_user in json_users:
+            occupants.append(GitterMUCOccupant.build_from_json(self, json_user['id']))
 
     def __unicode__(self):
         return self.name
+
     __str__ = __unicode__
 
-class GitterBackend(ErrBot):
 
+class GitterBackend(ErrBot):
     def __init__(self, config):
         super().__init__(config)
         self.md = md()
@@ -188,24 +192,25 @@ class GitterBackend(ErrBot):
 
         if not self.token:
             log.fatal(
-                'You need to set your auth token in the BOT_IDENTITY setting of '
-                'your configuration. To obtain it, execute the included oauth.py '
-                'script'
+                    'You need to set your auth token in the BOT_IDENTITY setting of '
+                    'your configuration. To obtain it, execute the included oauth.py '
+                    'script'
             )
             sys.exit(1)
         self.base_headers = {'Authorization': 'Bearer ' + self.token,
-                   'Accept': 'application/json'}
+                             'Accept': 'application/json'}
 
     def readAPIRequest(self, endpoint, params=None):
-        r = requests.get('https://api.gitter.im/v1/' + endpoint, headers=self.base_headers, params = params)
+        r = requests.get('https://api.gitter.im/v1/' + endpoint, headers=self.base_headers, params=params)
         if r.status_code != requests.codes.ok:
-          raise Exception("Server returned an error %d:%s" % (r.status_code, r.text))
+            raise Exception("Server returned an error %d:%s" % (r.status_code, r.text))
         return r.json()
 
     def streamAPIRequest(self, endpoint, params=None):
-        r = requests.get('https://stream.gitter.im/v1/' + endpoint, headers=self.base_headers, params = params, stream=True)
+        r = requests.get('https://stream.gitter.im/v1/' + endpoint, headers=self.base_headers, params=params,
+                         stream=True)
         if r.status_code != requests.codes.ok:
-          raise Exception("Server returned an error %d:%s" % (r.status_code, r.text))
+            raise Exception("Server returned an error %d:%s" % (r.status_code, r.text))
         return r
 
     def writeAPIRequest(self, endpoint, content):
@@ -213,10 +218,10 @@ class GitterBackend(ErrBot):
         headers['Content-Type'] = 'application/json'
         data = json.dumps(content)
         log.debug("POST url= %s, data = %s" % ('https://api.gitter.im/v1/' + endpoint, data))
-        r = requests.post('https://api.gitter.im/v1/' + endpoint, headers=headers, data = data)
+        r = requests.post('https://api.gitter.im/v1/' + endpoint, headers=headers, data=data)
 
         if r.status_code != requests.codes.ok:
-          raise Exception("Server returned an error %d:%s" % (r.status_code, r.text))
+            raise Exception("Server returned an error %d:%s" % (r.status_code, r.text))
         return r.json()
 
     def follow_room(self, room):
@@ -237,6 +242,7 @@ class GitterBackend(ErrBot):
                     self.callback_message(m)
                 else:
                     log.debug('keep alive')
+
         t = threading.Thread(target=background)
         t.daemon = True
         t.start()
@@ -245,9 +251,9 @@ class GitterBackend(ErrBot):
         json_rooms = self.readAPIRequest('rooms')
         rooms = []
         for json_room in json_rooms:
-          if not json_room['oneToOne']:
-            log.debug("found room %s (%s)" % (json_room['name'], json_room['uri']))
-            rooms.append(GitterRoom(self, json_room['id'], json_room['uri'], json_room['name']))
+            if not json_room['oneToOne']:
+                log.debug("found room %s (%s)" % (json_room['name'], json_room['uri']))
+                rooms.append(GitterRoom(self, json_room['id'], json_room['uri'], json_room['name']))
         return rooms
 
     def contacts(self):
@@ -255,28 +261,28 @@ class GitterBackend(ErrBot):
         json_rooms = self.readAPIRequest('rooms')
         contacts = []
         for json_room in json_rooms:
-          if json_room['oneToOne']:
-            json_user = json_room['user']
-            log.debug("found contact %s" % repr(json_room))
-            contacts.append(GitterRoom(self, json_room['id'], json_room['url'], json_room['name']))
+            if json_room['oneToOne']:
+                json_user = json_room['user']
+                log.debug("found contact %s" % repr(json_room))
+                contacts.append(GitterRoom(self, json_room['id'], json_room['url'], json_room['name']))
         return contacts
 
     def build_identifier(self, strrep):
         # contacts are a kind of special Room
         all_rooms = self.readAPIRequest('rooms')
         for json_room in all_rooms:
-          if json_room['oneToOne']:
-            json_user = json_room['user']
-            if json_user['username'] == strrep:
-                return GitterIdentifier.build_from_json(json_user)
+            if json_room['oneToOne']:
+                json_user = json_room['user']
+                if json_user['username'] == strrep:
+                    return GitterIdentifier.build_from_json(json_user)
         raise Exception("%s not found in %s", (strrep, all_rooms))
 
     def query_room(self, room):
         # TODO: maybe we can query the room resource only
         for native_room in self.rooms():
-          if native_room.uri == room:
-            log.debug("Found room %s" % room)
-            return native_room
+            if native_room.uri == room:
+                log.debug("Found room %s" % room)
+                return native_room
         return None
 
     def send_message(self, mess):
@@ -286,9 +292,9 @@ class GitterBackend(ErrBot):
         log.debug("af body = %s" % body)
         content = {'text': body}
         if mess.type == 'groupchat':
-          if hasattr(mess.to, 'room'):
-            self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
-                                 content)
+            if hasattr(mess.to, 'room'):
+                self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
+                                     content)
         elif mess.to.idd:
             self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd, content)
         else:
@@ -317,7 +323,7 @@ class GitterBackend(ErrBot):
         self.connect_callback()
         try:
             while True:
-              time.sleep(2)
+                time.sleep(2)
         except KeyboardInterrupt:
             log.info("Interrupt received, shutting down..")
             return True
@@ -325,7 +331,7 @@ class GitterBackend(ErrBot):
             self.disconnect_callback()
 
     def mode(self):
-      return 'gitter'
+        return 'gitter'
 
     def groupchat_reply_format(self):
         return '@{0} {1}'
