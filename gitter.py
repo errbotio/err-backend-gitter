@@ -243,7 +243,10 @@ class GitterBackend(ErrBot):
                     json_message = json.loads(line.decode('utf-8'))
                     from_user = json_message['fromUser']
                     log.debug("Raw message from room %s: %s" % (room.name, json_message))
-                    m = Message(json_message['text'], type_='groupchat')
+                    if room._uri == from_user['url']:
+                        m = Message(json_message['text'], type_='chat')
+                    else:
+                        m = Message(json_message['text'], type_='groupchat')
                     m.frm = GitterMUCOccupant.build_from_json(room, from_user)
                     m.to = self.bot_identifier
                     self.callback_message(m)
@@ -298,14 +301,11 @@ class GitterBackend(ErrBot):
         body = self.md.convert(mess.body)  # strips the unsupported stuff.
         log.debug("af body = %s" % body)
         content = {'text': body}
-        if mess.type == 'groupchat':
-            if hasattr(mess.to, 'room'):
-                self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
-                                     content)
-        elif mess.to.idd:
-            self.writeAPIRequest('rooms/%s/chatMessage' % mess.to.idd, content)
+        if hasattr(mess.to, 'room'):
+            self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
+                                 content)
         else:
-            log.warn('unable to send this message, to.idd is not specified.')
+            log.warn('unable to send this message, mess.to.room is not specified.')
 
     def build_reply(self, mess, text=None, private=False):
         response = self.build_message(text)
