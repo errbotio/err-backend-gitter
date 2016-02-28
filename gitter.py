@@ -346,5 +346,6 @@ class GitterBackend(ErrBot):
     def prefix_groupchat_reply(self, message, identifier):
         message.body = '{0}: {1}'.format(identifier.nick, message.body)
 
+    @property
     def mode(self):
         return 'gitter'
