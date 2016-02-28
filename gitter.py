@@ -79,6 +79,8 @@ class GitterIdentifier(object):
     def __unicode__(self):
         return self.username
 
+    aclattr = nick
+
 
 class GitterMUCOccupant(GitterIdentifier):
     def __init__(self,
