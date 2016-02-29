@@ -8,7 +8,8 @@ import threading
 from errbot.backends.base import Message, MUCRoom
 from errbot.rendering import md
 
-log = logging.getLogger(__name__)
+# Can't use __name__ because of Yapsy
+log = logging.getLogger('errbot.backends.gitter')
 
 # This limit wasn't published anywhere at time of implementation,
 # but experimentation showed that 4096 was the absolute maximum
