@@ -316,10 +316,6 @@ class GitterBackend(ErrBot):
         response.type = 'chat' if private else mess.type
         return response
 
-    def build_identifier(self, txtrep):
-        log.info('Building identifiers directly is not supported yet for gitter.')
-        return self.bot_identifier
-
     def connect_callback(self):
         super().connect_callback()
 
