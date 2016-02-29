@@ -10,6 +10,11 @@ from errbot.rendering import md
 
 log = logging.getLogger(__name__)
 
+# This limit wasn't published anywhere at time of implementation,
+# but experimentation showed that 4096 was the absolute maximum
+# length allowed. Anything higher would return "400 Bad Request".
+GITTER_MESSAGE_SIZE_LIMIT = 4096
+
 
 class GitterIdentifier(object):
     def __init__(self,
@@ -187,11 +192,18 @@ class GitterRoom(MUCRoom):
 
 
 class GitterBackend(ErrBot):
-
-
+    """
+    This is the Gitter backend for errbot.
+    """
 
     def __init__(self, config):
         super().__init__(config)
+        if config.MESSAGE_SIZE_LIMIT > GITTER_MESSAGE_SIZE_LIMIT:
+            log.info(
+                "Capping MESSAGE_SIZE_LIMIT to %s which is the maximum length allowed by Gitter",
+                GITTER_MESSAGE_SIZE_LIMIT
+            )
+            config.MESSAGE_SIZE_LIMIT = GITTER_MESSAGE_SIZE_LIMIT
         self.md = md()
         identity = config.BOT_IDENTITY
 
