@@ -17,6 +17,14 @@ log = logging.getLogger('errbot.backends.gitter')
 GITTER_MESSAGE_SIZE_LIMIT = 4096
 
 
+class GitterBackendException(Exception):
+    """Generic exception class for exceptions raised by the Gitter backend"""
+
+
+class MissingRoomAttributeError(GitterBackendException):
+    """Raised when an identifier is missing the expected room attribute"""
+
+
 class GitterIdentifier(object):
     def __init__(self,
                  idd=None,
@@ -289,7 +297,14 @@ class GitterBackend(ErrBot):
             if json_room['oneToOne']:
                 json_user = json_room['user']
                 log.debug("found contact %s" % repr(json_room))
-                contacts.append(GitterRoom(self, json_room['id'], json_room['url'], json_room['name']))
+                contacts.append(
+                    GitterRoom(
+                        backend=self,
+                        idd=json_room['id'],
+                        uri=json_room['url'],
+                        name=json_room['name']
+                    )
+                )
         return contacts
 
     def build_identifier(self, strrep):
@@ -299,7 +314,15 @@ class GitterBackend(ErrBot):
             if json_room['oneToOne']:
                 json_user = json_room['user']
                 if json_user['username'] == strrep:
-                    return GitterIdentifier.build_from_json(json_user)
+                    return GitterMUCOccupant.build_from_json(
+                        room=GitterRoom(
+                            backend=self,
+                            idd=json_room['id'],
+                            uri=json_room['url'],
+                            name=json_room['name']
+                        ),
+                        json_user=json_user
+                    )
         raise Exception("%s not found in %s", (strrep, all_rooms))
 
     def query_room(self, room):
@@ -320,13 +343,15 @@ class GitterBackend(ErrBot):
             self.writeAPIRequest('rooms/%s/chatMessages' % mess.to.room.idd,
                                  content)
         else:
-            log.warn('unable to send this message, mess.to.room is not specified.')
+            raise MissingRoomAttributeError('Unable to send message, `mess.to.room` is not present.')
 
     def build_reply(self, mess, text=None, private=False):
         response = self.build_message(text)
         response.frm = mess.to
         response.to = mess.frm
         response.type = 'chat' if private else mess.type
+        if private:
+            response.to = self.build_identifier(mess.frm.nick)
         return response
 
     def connect_callback(self):
