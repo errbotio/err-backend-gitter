@@ -91,10 +91,10 @@ class GitterIdentifier(object):
                                 avatarMedium=from_user['avatarUrlMedium'])
 
     def __unicode__(self):
-        return self.username
+        return "@%s" % self.username
 
     __str__ = __unicode__
-    aclattr = nick
+    aclattr = __str__
 
 
 class GitterMUCOccupant(GitterIdentifier):
@@ -321,6 +321,7 @@ class GitterBackend(ErrBot):
         return contacts
 
     def build_identifier(self, strrep):
+        strrep = strrep.lstrip("@")
         # contacts are a kind of special Room
         all_rooms = self.readAPIRequest('rooms')
         for json_room in all_rooms:
