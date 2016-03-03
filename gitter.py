@@ -93,6 +93,7 @@ class GitterIdentifier(object):
     def __unicode__(self):
         return self.username
 
+    __str__ = __unicode__
     aclattr = nick
 
 
@@ -217,7 +218,6 @@ class GitterBackend(ErrBot):
         identity = config.BOT_IDENTITY
 
         self.token = identity.get('token', None)
-        self.bot_identifier = GitterIdentifier(username='Errbot # this is unused in Gitter')
         self.rooms_to_join = config.CHATROOM_PRESENCE
 
         if not self.token:
@@ -229,6 +229,18 @@ class GitterBackend(ErrBot):
             sys.exit(1)
         self.base_headers = {'Authorization': 'Bearer ' + self.token,
                              'Accept': 'application/json'}
+        self.bot_identifier = self._get_bot_identifier()
+
+    def _get_bot_identifier(self):
+        """
+        Query the API for the bot's own identifier.
+        """
+        log.debug("Fetching and building identifier for the bot itself.")
+        r = self.readAPIRequest('user')
+        assert len(r) == 1
+        bot_identifier = GitterIdentifier.build_from_json(r[0])
+        log.debug("Done! I'm connected as %s", bot_identifier)
+        return bot_identifier
 
     def readAPIRequest(self, endpoint, params=None):
         r = requests.get('https://api.gitter.im/v1/' + endpoint, headers=self.base_headers, params=params)
@@ -268,13 +280,14 @@ class GitterBackend(ErrBot):
                     log.debug("Raw message from room %s: %s" % (room.name, json_message))
                     if room._uri == from_user['url']:
                         m = Message(json_message['text'], type_='chat')
+                        m.to = self.bot_identifier
                     else:
                         m = Message(json_message['text'], type_='groupchat')
+                        m.to = room
                     m.frm = GitterMUCOccupant.build_from_json(room, from_user)
-                    m.to = self.bot_identifier
                     self.callback_message(m)
                 else:
-                    log.debug('keep alive')
+                    log.debug('Received keep-alive on %s', room.name)
 
         t = threading.Thread(target=background)
         t.daemon = True
