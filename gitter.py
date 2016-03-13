@@ -5,7 +5,7 @@ import time
 import requests
 import sys
 import threading
-from errbot.backends.base import Message, MUCRoom
+from errbot.backends.base import Message, Person, Room, RoomOccupant
 from errbot.rendering import md
 
 # Can't use __name__ because of Yapsy
@@ -25,7 +25,7 @@ class MissingRoomAttributeError(GitterBackendException):
     """Raised when an identifier is missing the expected room attribute"""
 
 
-class GitterIdentifier(object):
+class GitterPerson(Person):
     def __init__(self,
                  idd=None,
                  username=None,
@@ -83,12 +83,15 @@ class GitterIdentifier(object):
 
     @staticmethod
     def build_from_json(from_user):
-        return GitterIdentifier(idd=from_user['id'],
-                                username=from_user['username'],
-                                displayName=from_user['displayName'],
-                                url=from_user['url'],
-                                avatarSmall=from_user['avatarUrlSmall'],
-                                avatarMedium=from_user['avatarUrlMedium'])
+        return GitterPerson(idd=from_user['id'],
+                            username=from_user['username'],
+                            displayName=from_user['displayName'],
+                            url=from_user['url'],
+                            avatarSmall=from_user['avatarUrlSmall'],
+                            avatarMedium=from_user['avatarUrlMedium'])
+
+    def __eq__(self, other):
+        return str(self) == str(other)
 
     def __unicode__(self):
         return self.username
@@ -97,7 +100,7 @@ class GitterIdentifier(object):
     aclattr = nick
 
 
-class GitterMUCOccupant(GitterIdentifier):
+class GitterRoomOccupant(GitterPerson, RoomOccupant):
     def __init__(self,
                  room,
                  idd=None,
@@ -120,23 +123,28 @@ class GitterMUCOccupant(GitterIdentifier):
 
     @staticmethod
     def build_from_json(room, json_user):
-        return GitterMUCOccupant(room,
-                                 idd=json_user['id'],
-                                 username=json_user['username'],
-                                 displayName=json_user['displayName'],
-                                 url=json_user['url'],
-                                 avatarSmall=json_user['avatarUrlSmall'],
-                                 avatarMedium=json_user['avatarUrlMedium'])
+        return GitterRoomOccupant(room,
+                                  idd=json_user['id'],
+                                  username=json_user['username'],
+                                  displayName=json_user['displayName'],
+                                  url=json_user['url'],
+                                  avatarSmall=json_user['avatarUrlSmall'],
+                                  avatarMedium=json_user['avatarUrlMedium'])
 
     def __unicode__(self):
         if self.url == self._room._uri:
             return self.username  # this is a 1 to 1 MUC
         return self.username + '@' + self._room.name
 
+    def __eq__(self, other):
+        if hasattr(other, 'person'):
+            return self.person == other.person
+        return str(self) == str(other)
+
     __str__ = __unicode__
 
 
-class GitterRoom(MUCRoom):
+class GitterRoom(Room):
 
     def invite(self, *args) -> None:
         pass
@@ -152,7 +160,7 @@ class GitterRoom(MUCRoom):
         try:
             response = self._backend.writeAPIRequest('rooms', {'uri': self._uri})
             log.debug("Response: %s" % response)
-        except Exception as e:
+        except Exception:
             log.exception("Failed to join room")
         self._backend.follow_room(self)
 
@@ -163,10 +171,6 @@ class GitterRoom(MUCRoom):
     @property
     def idd(self):
         return self._idd
-
-    # make a Room compatible with an identifier
-    to = idd
-    person = to
 
     @property
     def name(self):
@@ -181,7 +185,7 @@ class GitterRoom(MUCRoom):
     def create(self):
         pass  # TODO
 
-    def leave(self):
+    def leave(self, reason=None):
         pass  # TODO
 
     @property
@@ -193,7 +197,11 @@ class GitterRoom(MUCRoom):
         occupants = []
         json_users = self._backend.readAPIRequest('rooms/%s/users' % self._uri)
         for json_user in json_users:
-            occupants.append(GitterMUCOccupant.build_from_json(self, json_user['id']))
+            occupants.append(GitterRoomOccupant.build_from_json(self, json_user['id']))
+        return occupants
+
+    def __eq_(self, other):
+        return str(self) == str(other)
 
     def __unicode__(self):
         return self.name
@@ -238,7 +246,7 @@ class GitterBackend(ErrBot):
         log.debug("Fetching and building identifier for the bot itself.")
         r = self.readAPIRequest('user')
         assert len(r) == 1
-        bot_identifier = GitterIdentifier.build_from_json(r[0])
+        bot_identifier = GitterPerson.build_from_json(r[0])
         log.debug("Done! I'm connected as %s", bot_identifier)
         return bot_identifier
 
@@ -279,12 +287,12 @@ class GitterBackend(ErrBot):
                     from_user = json_message['fromUser']
                     log.debug("Raw message from room %s: %s" % (room.name, json_message))
                     if room._uri == from_user['url']:
-                        m = Message(json_message['text'], type_='chat')
+                        m = Message(json_message['text'])
                         m.to = self.bot_identifier
                     else:
-                        m = Message(json_message['text'], type_='groupchat')
+                        m = Message(json_message['text'])
                         m.to = room
-                    m.frm = GitterMUCOccupant.build_from_json(room, from_user)
+                    m.frm = GitterRoomOccupant.build_from_json(room, from_user)
                     self.callback_message(m)
                 else:
                     log.debug('Received keep-alive on %s', room.name)
@@ -321,13 +329,21 @@ class GitterBackend(ErrBot):
         return contacts
 
     def build_identifier(self, strrep):
+        if strrep == str(self.bot_identifier):
+            return self.bot_identifier
+
+        if '@' in strrep and not strrep.startswith('@'):
+            user = strrep.split('@')[0]
+        else:
+            user = strrep
+
         # contacts are a kind of special Room
         all_rooms = self.readAPIRequest('rooms')
         for json_room in all_rooms:
             if json_room['oneToOne']:
                 json_user = json_room['user']
-                if json_user['username'] == strrep:
-                    return GitterMUCOccupant.build_from_json(
+                if json_user['username'] == user:
+                    return GitterRoomOccupant.build_from_json(
                         room=GitterRoom(
                             backend=self,
                             idd=json_room['id'],
@@ -336,7 +352,12 @@ class GitterBackend(ErrBot):
                         ),
                         json_user=json_user
                     )
-        raise Exception("%s not found in %s", (strrep, all_rooms))
+
+        room = self.query_room(strrep)
+        if room is not None:
+            return room
+
+        raise Exception("Couldn't build an identifier from %s." % strrep)
 
     def query_room(self, room):
         # TODO: maybe we can query the room resource only
@@ -362,7 +383,6 @@ class GitterBackend(ErrBot):
         response = self.build_message(text)
         response.frm = mess.to
         response.to = mess.frm
-        response.type = 'chat' if private else mess.type
         if private:
             response.to = self.build_identifier(mess.frm.nick)
         return response
