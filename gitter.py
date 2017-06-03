@@ -24,6 +24,9 @@ class GitterBackendException(Exception):
 class MissingRoomAttributeError(GitterBackendException):
     """Raised when an identifier is missing the expected room attribute"""
 
+class RoomNotFoundError(GitterBackendException):
+    """Raised when room is not found on querying the room resource"""
+
 
 class GitterPerson(Person):
     def __init__(self,
@@ -190,7 +193,12 @@ class GitterRoom(Room):
 
     @property
     def topic(self):
-        return "TODO"  # TODO
+        json = self._backend.readAPIRequest('rooms', {"q": self.uri}).json()
+        for element in json:
+            if element.uri == self.uri:
+                return element.topic
+            else:
+                raise RoomNotFoundError("Cannot find the room '{}'".format(self.uri))
 
     @property
     def occupants(self):
@@ -309,7 +317,8 @@ class GitterBackend(ErrBot):
         for json_room in json_rooms:
             if not json_room['oneToOne']:
                 log.debug("found room %s (%s)" % (json_room['name'], json_room['uri']))
-                rooms.append(GitterRoom(self, json_room['id'], json_room['uri'], json_room['name']))
+                rooms.append(GitterRoom(self, json_room['id'], json_room['uri'],
+                                        json_room['name']))
         return rooms
 
     def contacts(self):
