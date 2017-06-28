@@ -298,13 +298,13 @@ class GitterBackend(ErrBot):
                     from_user = json_message['fromUser']
                     log.debug("Raw message from room %s: %s" % (room.name, json_message))
                     if room._uri == from_user['url']:
-                        m = Message(json_message['text'])
+                        m = Message(json_message['text'],
+                                    extras={'id': json_message['id']})
                         m.to = self.bot_identifier
-                        m.extras = {'id': json_message['id']}
                     else:
-                        m = Message(json_message['text'])
+                        m = Message(json_message['text'],
+                                    extras={'id': json_message['id']})
                         m.to = room
-                        m.extras = {'id': json_message['id']}
                     m.frm = GitterRoomOccupant.build_from_json(room, from_user)
                     self.callback_message(m)
                 else:
