@@ -157,6 +157,7 @@ class GitterRoom(Room):
         self._name = name
         self._uri = uri
         self._idd = idd
+        self._joined = False
 
     def join(self, username=None, password=None):
         log.debug("Joining room %s (%s)" % (self._uri, self._idd))
@@ -179,7 +180,10 @@ class GitterRoom(Room):
     def name(self):
         return self._name
 
-    joined = True  # TODO
+    @property
+    def joined(self):
+        return self._joined
+
     exists = True  # TODO
 
     def destroy(self):
@@ -216,6 +220,64 @@ class GitterRoom(Room):
 
     __str__ = __unicode__
 
+class GitterRoomThread(threading.Thread):
+    def __init__(self, room, backend):
+        super().__init__()
+        self.room = room
+        self.backend = backend
+        self._reconnection_count = 0          # Increments with each failed (re)connection
+        self._reconnection_delay = 1          # Amount of seconds the bot will sleep on the
+        #                                     # next reconnection attempt
+        self._reconnection_max_delay = 600    # Maximum delay between reconnection attempts
+        self._reconnection_multiplier = 1.75  # Delay multiplier
+        self._reconnection_jitter = (0, 3)    # Random jitter added to delay (min, max)
+
+    def run(self):
+        self.room._joined = True
+        log.debug("thread for %s started" % self.room.idd)
+        while True:
+            self.stream()
+            self._delay_reconnect()
+
+    def _delay_reconnect(self):
+        """Delay next reconnection attempt until a suitable back-off time has passed"""
+        time.sleep(self._reconnection_delay)
+
+        self._reconnection_delay *= self._reconnection_multiplier
+        if self._reconnection_delay > self._reconnection_max_delay:
+            self._reconnection_delay = self._reconnection_max_delay
+        self._reconnection_delay += random.uniform(*self._reconnection_jitter)  # nosec
+
+    def reset_reconnection_count(self) -> None:
+        """
+        Reset the reconnection count. Back-ends should call this after
+        successfully connecting.
+        """
+        self._reconnection_count = 0
+        self._reconnection_delay = 1
+
+    def stream(self):
+        r = self.backend.streamAPIRequest('rooms/%s/chatMessages' % self.room.idd)
+        log.debug("connected %s" % self.room.name)
+
+        try:
+            self.reset_reconnection_count()
+            for line in r.iter_lines(chunk_size=1):  # it fails with anything else than 1.
+                if line.strip():
+                    json_message = json.loads(line.decode('utf-8'))
+                    from_user = json_message['fromUser']
+                    log.debug("Raw message from room %s: %s" % (self.room.name, json_message))
+                    m = Message(json_message['text'])
+                    if self.room._uri == from_user['url']:
+                        m.to = self.backend.bot_identifier
+                    else:
+                        m.to = self.room
+                    m.frm = GitterRoomOccupant.build_from_json(self.room, from_user)
+                    self.backend.callback_message(m)
+                else:
+                    log.debug('Received keep-alive on %s', self.room.name)
+        except:
+            log.exception('An exception occured while streaming the room: ')
 
 class GitterBackend(ErrBot):
     """
@@ -287,37 +349,14 @@ class GitterBackend(ErrBot):
 
     def follow_room(self, room):
         log.debug("following room %s" % room._idd)
-
-        def background():
-            log.debug("thread for %s started" % room.idd)
-            r = self.streamAPIRequest('rooms/%s/chatMessages' % room.idd)
-            log.debug("connected %s" % room.name)
-            for line in r.iter_lines(chunk_size=1):  # it fails with anything else than 1.
-                if line.strip():
-                    json_message = json.loads(line.decode('utf-8'))
-                    from_user = json_message['fromUser']
-                    log.debug("Raw message from room %s: %s" % (room.name, json_message))
-                    if room._uri == from_user['url']:
-                        m = Message(json_message['text'],
-                                    extras={'id': json_message['id']})
-                        m.to = self.bot_identifier
-                    else:
-                        m = Message(json_message['text'],
-                                    extras={'id': json_message['id']})
-                        m.to = room
-                    m.frm = GitterRoomOccupant.build_from_json(room, from_user)
-                    self.callback_message(m)
-                else:
-                    log.debug('Received keep-alive on %s', room.name)
-
-        with self._joined_rooms_lock:
-            if room._uri not in self._joined_rooms:
-                t = threading.Thread(target=background)
-                t.daemon = True
-                t.start()
+        if room._uri not in self._joined_rooms:
+            thread = GitterRoomThread(room, self)
+            thread.daemon = True
+            thread.start()
+            with self._joined_rooms_lock:
                 self._joined_rooms.append(room._uri)
-            else:
-                log.info("Already joined %s", room.name)
+        else:
+            log.info("Already joined %s", room.name)
 
     def rooms(self):
         json_rooms = self.readAPIRequest('rooms')
