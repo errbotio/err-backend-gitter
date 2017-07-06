@@ -267,7 +267,8 @@ class GitterRoomThread(threading.Thread):
                     json_message = json.loads(line.decode('utf-8'))
                     from_user = json_message['fromUser']
                     log.debug("Raw message from room %s: %s" % (self.room.name, json_message))
-                    m = Message(json_message['text'])
+                    m = Message(json_message['text'],
+                                extras={'id': json_message['id']})
                     if self.room._uri == from_user['url']:
                         m.to = self.backend.bot_identifier
                     else:
