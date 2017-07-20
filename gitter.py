@@ -2,6 +2,7 @@ from errbot.errBot import ErrBot
 import json
 import logging
 import time
+import random
 import requests
 import sys
 import threading
