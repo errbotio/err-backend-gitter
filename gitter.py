@@ -439,7 +439,7 @@ class GitterBackend(ErrBot):
         else:
             raise MissingRoomAttributeError('Unable to send message, `mess.to.room` is not present.')
 
-    def build_reply(self, mess, text=None, private=False):
+    def build_reply(self, mess, text=None, private=False, threaded=False):
         response = self.build_message(text)
         response.frm = mess.to
         response.to = mess.frm
