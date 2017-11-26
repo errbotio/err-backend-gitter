@@ -274,6 +274,8 @@ class GitterRoomThread(threading.Thread):
                         m.to = self.backend.bot_identifier
                     else:
                         m.to = self.room
+                        m.extras['url'] = 'https://gitter.im/%s?at=%s' % (
+                            self.room.uri, m.extras['id'])
                     m.frm = GitterRoomOccupant.build_from_json(self.room, from_user)
                     self.backend.callback_message(m)
                 else:
