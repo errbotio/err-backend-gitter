@@ -208,7 +208,7 @@ class GitterRoom(Room):
     @property
     def occupants(self):
         occupants = []
-        json_users = self._backend.readAPIRequest('rooms/%s/users' % self._uri)
+        json_users = self._backend.readAPIRequest('rooms/%s/users' % self._idd)
         for json_user in json_users:
             occupants.append(GitterRoomOccupant.build_from_json(self, json_user['id']))
         return occupants
