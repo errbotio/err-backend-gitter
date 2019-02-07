@@ -1,4 +1,4 @@
-from errbot.errBot import ErrBot
+from errbot.core import ErrBot
 import json
 import logging
 import time
@@ -210,7 +210,7 @@ class GitterRoom(Room):
         occupants = []
         json_users = self._backend.readAPIRequest('rooms/%s/users' % self._idd)
         for json_user in json_users:
-            occupants.append(GitterRoomOccupant.build_from_json(self, json_user['id']))
+            occupants.append(GitterRoomOccupant.build_from_json(self, json_user))
         return occupants
 
     def __eq_(self, other):
